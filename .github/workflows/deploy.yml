@@ -1,0 +1,22 @@
+{
+"name": "Build Android APK",
+"on": {"push": {"branches": ["main"]}, "workflow_dispatch": {}},
+"permissions": {"contents": "write"},
+"jobs": {
+"apk": {
+"runs-on": "ubuntu-latest",
+"steps": [
+{"uses": "actions/checkout@v4"},
+{"name": "Find project folder", "id": "find", "run": "for Z in $(find . -maxdepth 2 -name '*.zip'); do unzip -oq \"$Z\" -d unzipped; done; CONFIG=$(find . -name capacitor.config.json -not -path '*/node_modules/*' | head -n 1); if [ -z \"$CONFIG\" ]; then echo not found; ls -R . | head -50; exit 1; fi; DIR=$(dirname \"$CONFIG\"); echo \"dir=$DIR\" >> \"$GITHUB_OUTPUT\""},
+{"uses": "actions/setup-node@v4", "with": {"node-version": 20}},
+{"uses": "actions/setup-java@v4", "with": {"distribution": "temurin", "java-version": "17"}},
+{"name": "Install", "run": "npm install", "working-directory": "${{ steps.find.outputs.dir }}"},
+{"name": "Build web", "run": "npm run build", "working-directory": "${{ steps.find.outputs.dir }}"},
+{"name": "Add Android", "run": "npx cap add android && npx cap sync android", "working-directory": "${{ steps.find.outputs.dir }}"},
+{"name": "Build APK", "run": "chmod +x gradlew && ./gradlew assembleDebug", "working-directory": "${{ steps.find.outputs.dir }}/android"},
+{"uses": "actions/upload-artifact@v4", "with": {"name": "salesforce-academy-apk", "path": "${{ steps.find.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk"}},
+{"uses": "softprops/action-gh-release@v2", "with": {"tag_name": "apk-${{ github.run_number }}", "name": "APK ${{ github.run_number }}", "files": "${{ steps.find.outputs.dir }}/android/app/build/outputs/apk/debug/app-debug.apk"}}
+]
+}
+}
+}
